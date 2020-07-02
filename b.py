@@ -19,3 +19,5 @@ def getImg(html):
 html = getHtml("http://tieba.baidu.com/p/2460150866")
 
 print(getImg(html))
+
+print(getImg(html))
