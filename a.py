@@ -1,35 +1,46 @@
-import requests
-import re
-from urllib.request import urlopen
+import pandas as pd
 
-url = 'http://www.cae.cn/cae/html/main/col48/column_48_1.html'
-respond = requests.get(url)
-respond.encoding = 'utf-8'
+#1、读取数据集
+wine = pd.read_csv('wine.csv')
+winequality = pd.read_csv('winequality.csv',sep = ';')
 
-every_num = re.findall('<a href="/cae/html/main/colys/(\d+).html" target="_blank">', respond.text)
 
-count = 1
 
-for man in every_num[:1000]:
+#2、数据和标签拆分开
+wine_data=wine.iloc[:,1:]
+wine_target=wine['Class']
+winequality_data=winequality.iloc[:,:-1]
+winequality_target=winequality['quality']
 
-    man_url = 'http://www.cae.cn/cae/html/main/colys/{}.html'.format(man)
-    man_respond = requests.get(man_url)
-    man_respond.encoding = 'utf-8'
 
-    text1 = re.findall('<div class="intro">(.*?)</div>', man_respond.text, re.S)
-    text2 = re.sub(r'<p>|&ensp;|&nbsp;|</p>', '', text1[0]).strip()
+#3、划分训练集和测试集
+from sklearn.model_selection import train_test_split
+wine_data_train, wine_data_test, \
+wine_target_train, wine_target_test = \
+train_test_split(wine_data, wine_target, \
+    test_size=0.1, random_state=6)
 
-    # print(text2)
-    file_name = re.findall('<div class="right_md_name">(.*?)</div>', man_respond.text)[0]
-    with open(file_name + '.txt', mode='a+', encoding="utf-8") as f:
-        f.write('{}. '.format(count) + text2 + '\n')
-        count += 1
+winequality_data_train, winequality_data_test, \
+winequality_target_train, winequality_target_test = \
+train_test_split(winequality_data, winequality_target, \
+    test_size=0.1, random_state=6)
 
-    photo = r'<img src="/cae/admin/upload/img/(.+)" style='
-    result = re.findall(photo, man_respond.text, re.I)
+#4、标准化数据集
+from sklearn.preprocessing import StandardScaler #标准差标准化
+stdScale = StandardScaler().fit(wine_data_train) #生成规则（建模）
+wine_trainScaler = stdScale.transform(wine_data_train)#对训练集进行标准化
+wine_testScaler = stdScale.transform(wine_data_test)#用训练集训练的模型对测试集标准化
 
-    if result:
-        picurl = r'http://www.cae.cn/cae/admin/upload/img/{0}'.format(result[0].replace(' ', r'%20'))
-        img_name = re.findall('<div class="right_md_name">(.*?)</div>', man_respond.text)[0]
-        with open(img_name + '.jpg', 'wb') as fpic:
-            fpic.write(urlopen(picurl).read())
+stdScale = StandardScaler().fit(winequality_data_train)
+winequality_trainScaler = stdScale.transform(winequality_data_train)
+winequality_testScaler = stdScale.transform(winequality_data_test)
+
+#5、PCA降维
+from sklearn.decomposition import PCA
+pca = PCA(n_components=5).fit(wine_trainScaler)
+wine_trainPca = pca.transform(wine_trainScaler)
+wine_testPca = pca.transform(wine_testScaler)
+
+pca = PCA(n_components=5).fit(winequality_trainScaler)
+winequality_trainPca = pca.transform(winequality_trainScaler)
+winequality_testPca = pca.transform(winequality_testScaler)
